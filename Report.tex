@@ -11,10 +11,9 @@
 \usepackage{graphicx}
 \usepackage[colorinlistoftodos]{todonotes}
 \usepackage{geometry}
-
 \geometry{a4paper,top=3cm,bottom=3cm,left=2.3cm,right=2.3cm,%
 heightrounded,bindingoffset=5mm}
- 
+
 \graphicspath{{./immagini/}}
 \begin{document}
 
@@ -70,14 +69,8 @@ Riccardo Zini     - ID: 862334 Personal Code: 10546802\\[1.5cm]\end{large}
 \vfill % Fill the rest of the page with whitespace
 
 \end{titlepage}
-
 \tableofcontents
-
-%\begin{abstract}
-%Your abstract.
-%\end{abstract}
-
-\section{Introduction}
+\newpage\section{Introduction}
 \subsection{Description of the project}
 The goal of the project is to control a permanent-magnet synchronous motor by means of the DMC-28X, digital motion control interface.\\
 The setup is composed of a Pittman motor (\textit{Pittman 3441 brushless motor}), a microcontroller (\textit{technosoft MCK2812}) and a power supply (\textit{GW Instek GPS-4303}).\\[0.3cm]
@@ -251,7 +244,7 @@ current reference value ($iq_{ref}$).
 This cycle samples at 1kHz, and this will impact our specifications for the control's parameters.
 
 \textbf{Interrupt void RtcFast()}:
-This is the current loop control routine and implements the current control. As FOC is implemented, to control the motor rotoric d,q frame is used and this function computes the phase voltages reference values and issues the new PWM commands. The sampling is 10kHz and this determines the maximum resolution we can obtain. 
+This is the current loop control routine and implements the current control. As FOC is implemented, to control the motor rotoric d,q frame is used and this function computes the phase voltages reference values and issues the new PWM (\textit{Pulse Wave Modulation}) commands. The sampling is 10kHz and this determines the maximum resolution we can obtain. 
 
 \subsection{IQ data}
 
@@ -371,10 +364,9 @@ The updated loop in discrete time is the following:
 \centering
 \includegraphics[width=16cm,height=3cm,angle=0]{Anellocorrentediscreto}
 \end{figure}\\
-Note that, there is a new block named \textit{Zero-Order Hold} that is used to discretize a continuous input with the sampling time chosen by the user. Our sampling is performed at 10kHz as the microcotroller in the fast loop does.
-\begin{huge}
-Inserire formule TF e Ts e Tustin
-\end{huge}
+Note that, there is a new block named \textit{Zero-Order Hold} that is used to discretize a continuous input with the sampling time chosen by the user. Our sampling is performed at 10kHz as the microcotroller in the fast loop does.\\[0.5cm]
+$$PI_{discrete}(z)=\frac{4.335z-1.185}{z-1}$$
+
 \subsubsection*{Tuning the PI}
 The specification of the current loop depends on the environment in which we are working. As the speed is controlled in the slow loop, and the current reference is imposed by the speed control, we want the current to update within one cycle of the velocity loop. This means that the current has to reach steady state at most in one sampling time of 1kHz. For this reason we set the rising time of the current to 0.5ms. This parameter leads us to a bandwidth of 6000.
 The image below shows what we got from the Simulink execution. 
@@ -383,7 +375,22 @@ The image below shows what we got from the Simulink execution.
 \includegraphics[width=10cm,height=9cm,angle=0]{TsCorrente}
 \caption{Comparison between input reference and system response}
 \end{figure}\\
-Note that the rising time perfectly coincides with the expected one (i.e. 0.5ms). 
+Note that the rising time perfectly coincides with the expected one (i.e. 0.5ms).\\
+Below there are a few lines of our matlab code we used to tune the PI:
+\begin{figure}[h]
+\includegraphics[width=13cm,height=7cm,angle=0]{CodicePICorrente1}
+\end{figure}\\
+\textit{NOTE:} Wimax is the max bandwidth of the current loop.
+\begin{figure}[h]
+\includegraphics[width=12.5cm,height=10.5cm,angle=0]{CodicePICorrente2}
+\end{figure}\\
+\textit{NOTE:} Using $TIi=\frac{Ls}{Rs}$ the pole of the motor can be removed and thanks to \textit{Kpi} the desired bandwidth can be chosen.\\[0.5cm]
+With this last step, we will compute the \textit{discretization} of the transfer function by means of the \textit{Tustin transformation}:
+\begin{figure}[h]
+\includegraphics[width=9cm,height=1.5cm,angle=0]{CodicePICorrente3}
+\end{figure}\\
+
+
 \subsection{Speed loop}
 To realize the speed regulator, the whole system transfer function is needed. The output of the speed regulator represents the desired value of the electromagnetic torque that is proportional to the q component of the statoric current.\\
 This is shown in the scheme below.
@@ -411,9 +418,7 @@ In the last scheme, three new block has been used:\\
 \textit{Convert} and \textit{Gateway Out} are data type conversion blocks and convert an input signal of any simulink data type to the one that you specify. In particular, we used them to convert of type double in IQ, which is the type the microcontroller has to be fed with.
 The \textit{memory} block holds and delays its input by one major integration time step. When placed in an iterator subsystem, it holds and delays its input by one iteration.
 Finally, the \textit{saturation} block imposes upper and lower limits on an input signal. We needed it to simulate the fact that our is a 32 bit board, with 15 bits dedicated to the integer part, which corresponds to an upper limit of 32768 ($2^{15} = 32768$).
-
-
-
+\subsubsection*{Tuning the PI}
 
 \section{Implementation of the control SW on the real system and comparison between numerical and experimental results for all the control architectures}
 
@@ -421,34 +426,6 @@ Finally, the \textit{saturation} block imposes upper and lower limits on an inpu
 
 
 \section{Position control}
-In this chapter we implemented the last nest, the one of Position Control.
-In our scheme the motor load is represented only by the inertia \textit{Jm} and an integrator \textit{1/s}. The resulting transfer function is \textit{Jm/s}.
-Taking as input the Command Voltage and as output the final position we decided to model the controller as a pure proportional term \textit{Kp}.
-The output of P controller is the torque that tunes the final position. 
-
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=15cm,height=3cm,angle=0]{}
-	\caption{Position block diagram in continuous time}
-\end{figure}\\
-
-
-As for current and speed loop we move everything from the continuous time to the discrete one. The final result is shown in the figure below
-
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=15cm,height=3cm,angle=0]{}
-	\caption{Position block diagram in discrete time}
-\end{figure}\\
-
-
-As shown in figures the resulting system transfer function is \textbf{P(s)}
-\begin{equation}
-P(s) = \dfrac{Kp*Jm}{s}
-\end{equation}
-
-
-
 
 
 \end{document}
