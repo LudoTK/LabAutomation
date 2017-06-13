@@ -1,0 +1,455 @@
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{wrapfig}
+\usepackage{subfig}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{geometry}
+
+\geometry{a4paper,top=3cm,bottom=3cm,left=2.3cm,right=2.3cm,%
+heightrounded,bindingoffset=5mm}
+ 
+\graphicspath{{./immagini/}}
+\begin{document}
+
+\begin{titlepage}
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}} % Defines a new command for the horizontal lines, change thickness here
+
+\center % Center everything on the page
+ 
+%----------------------------------------------------------------------------------------
+%	HEADING SECTIONS
+%----------------------------------------------------------------------------------------
+
+\textsc{\LARGE POLITECNICO DI MILANO}\\[1cm] % Name of your university/college
+\textsc{\Large Automation and Control Laboratory}\\[1cm] % Major heading such as course name
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\HRule \\[0.4cm]
+{ \huge \bfseries Control of a permanent-magnet synchronous motor}\\[0.4cm] % Title of your document
+\HRule \\[1.5cm]
+ 
+%----------------------------------------------------------------------------------------
+%	AUTHOR SECTION
+%----------------------------------------------------------------------------------------
+
+\begin{flushleft}
+\Large \emph{Authors:}\\[0.3cm]
+\begin{large}
+Alessandro Guarda - ID: 863737 Personal Code: 10423358\\
+Angelo Di Dedda   - ID: 864223 Personal Code: 10344033\\
+Ludovico Crotta   - ID: 875262 Personal Code: 10424971\\
+Riccardo Zini     - ID: 862334 Personal Code: 10546802\\[1.5cm]\end{large}
+\end{flushleft}
+
+%----------------------------------------------------------------------------------------
+%	DATE SECTION
+
+\begin{flushright}
+{\large \today}\\[2.5cm]
+\end{flushright}
+
+%----------------------------------------------------------------------------------------
+%	LOGO SECTION
+%----------------------------------------------------------------------------------------
+
+\includegraphics[width=8cm,height=6cm,angle=0]{Logo_Polimi.png}
+ 
+%----------------------------------------------------------------------------------------
+
+\vfill % Fill the rest of the page with whitespace
+
+\end{titlepage}
+
+\tableofcontents
+
+%\begin{abstract}
+%Your abstract.
+%\end{abstract}
+
+\section{Introduction}
+\subsection{Description of the project}
+The goal of the project is to control a permanent-magnet synchronous motor by means of the DMC-28X, digital motion control interface.\\
+The setup is composed of a Pittman motor (\textit{Pittman 3441 brushless motor}), a microcontroller (\textit{technosoft MCK2812}) and a power supply (\textit{GW Instek GPS-4303}).\\[0.3cm]
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=9cm,height=7cm,angle=0]{setup_picture.png}
+\caption{\label{fig:setup}This is the setup.}
+\end{figure}
+
+\subsection{Execution steps}
+
+\begin{enumerate}
+\item Identification of the system parameters from catalogues,
+measures and calculations (R, L, Jmot etc. etc.).
+\item Implementation of Matlab/Simulink simulation model
+\item Implementation and tuning of the current and speed loop
+(classical solution with PI-PI nested loops) with or without
+Feed-Forward on the current loop.
+\item Implementation of the control SW on the real system and
+comparison between numerical and experimental results for
+all the control architectures.
+\item Position control (P-PI-PI, PI-PD)
+\item Dynamic-reference generator (optional)
+\end{enumerate}
+
+\section{Technical description}
+\subsection{Chapter overview}
+The chapter discusses the hardware modules of the project in details. We will be covering GW Instek power supply, Techsoft microcontroller, together with its advanced software platform and the Pittman motor. 
+
+\subsection{GW Instek GPS-4303}
+
+The GPS-4303 belongs to the GPS-Series which are 2-4 channel, 180 to 200W output, linear DC GW INSTEK power supplies. 
+Overload and reverse polarity protection and an output on/off switch keep the GPS-Series and their load safe from unexpected conditions.\\
+A High regulation (0.01\%+3mV) and low ripple/noise ($< 1mV_{rms}$, 5Hz $\sim$ 1MHz) are maintained for channel 1 and 2 in constant voltage mode.\\
+
+\includegraphics[width=5cm,height=3cm,angle=0]{PowerSupply.png}\\[0.7cm]
+Automated cooling fan speed control
+minimizes fan noise according to load conditions, ensuring quiet operation. The GPS-Series are an
+ideal solution for lightweight, inexpensive bench-top or portable applications requiring high regulation
+and multiple outputs.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=9cm,height=9cm,angle=0]{DatiGW.png}
+\end{figure}
+
+\subsection{Technosoft MSK2812}
+
+The Technosoft MSK2812 is board based on the TMS320F2812 fixed-point digital signal controller (DSC).\\[0.7cm]
+
+\begin{Large}\textit{\underline{Hardware specifications}}:\end{Large}\\
+\begin{itemize}
+\item DSP controller TMS320F2812 operating at 150 MHz
+\item 128K word on-chip Flash program memory
+\item 18K word on-chip data/program of RAM memory
+\item 128K word on-board data/program of RAM memory
+\item RS-232 serial communication port
+\item Opto - isolated CAN communication interface
+\item Standard I/O connector (3.3V – MC-BUS) for simultaneous links with two power modules
+\item Access to 56 Individually Programmable GPIO DSP pins
+\item 16 channels of 12-bit accuracy A/D inputs
+\item 2 channels of 12-bit accuracy D/A outputs
+\item DSP address / data expansion bus connector
+\item Single DC power supply: 5V
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=9cm,height=7cm,angle=0]{TechnosoftMSK2812.png}
+\caption{\label{fig:setup}Technosoft MSK2812 board.}
+\end{figure}
+
+\newpage\subsection{Pittman 3441 Series brushless motor}
+
+PITTMAN® brushless motor offer many advantages over conventional slotted stator construction. Negligible magnetic cogging provides improved servo performance and enables extremely smooth motion even at low speeds. Low inductance and high current bandwidth results in fast move response times. \\
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{FotoMotore.png}
+\end{figure}\\[0.4cm]
+The slotless construction also provides excellent winding heat transfer for high thermal efficiency and transient load capacity. The slotless brushless dc motor designs have internal Hall Effect feedback sensors for linear speed-torque characteristics, high starting torque, and variable speed control when used with the appropriate drive electronics.\\
+This motor is also equipped with an encoder connected to the board and allows us to measure the rotational speed of the machine.
+Data provided from the encoder can be read using the a proper tool present in the Texas Instrument software DMC28x.\\
+
+\section{First step}
+\subsection{Chapter overview}
+The chapter provides hints about the working principles of brushless motors, the basics of \textit{Field Oriented Control} and the Park and antiPark transformation.
+Furthermore will be explained the initial phase of the approach with Matlab 6 and the DMC28x environment.
+It will also discuss about issues faced during the first step of our project.
+\subsection{Brushless motors}
+Brushless are syncronous, three phase, permanent magnets motors.
+Statoric windings (generally \textit{star-connected}) are supplied by an inverter.\\
+From the functional point of view, brushless motors can be considered as D.C. permanent-magnets motors with electronic commutator.
+The combination of an inner permanent magnet rotor and outer windings offers the advantages of low rotor inertia, efficient heat dissipation and reduction of the motor size. Moreover, the elimination of brushes reduces noise and suppresses the need of brushes maintenance.
+\begin{figure}[h]
+\centering
+\includegraphics[width=12cm,height=7cm,angle=0]{Inverter.png}
+\caption{\label{fig:ciao}}
+\end{figure}\\
+Both in this two kind of machines, phasors representing stator's and rotor's field, turn out to be displaced by 90°.
+In brushless motors specifically, the magnetic field generated by permanent magnets placed on the rotor, is rotating, while the one induced by currents flowing in the three stator windings is made rotating by the action of the inverter.  
+This particular kind of motor is self-starting because the stator's windings supply, makes the stator's magnetic field rotate always at the same speed of the rotor one.
+That's why at the beginning, the statoric field and the rotor reach the same speed.
+
+\subsection{Field Oriented Control}
+The principle of vector control of electrical drives is based on the control of both the magnitude and the phase of each phase current and voltage. For as long as this type of control considers the three phase system as three independent systems, the control will remain analog and thus present several drawbacks. Since high computational power silicon devices, such as the TMS320F2812 from TI, came to market it has been possible to realize far more precise digital vector control algorithms. We will use the most common of these accurate vector controls: the \textit{Field Oriented Control}.\\
+\textbf{The Field Orientated Control (FOC)} consists of controlling the stator currents represented by a vector. This control is based on the transformation of a threephase
+time and speed dependent system into a two coordinates (d and q coordinates) time invariant system.\\ 
+These projections lead to a structure similar to that of a DC
+machine control. Field oriented controlled machines need two constants as input references: the torque component (aligned with the q coordinate) and the flux component (aligned with d coordinate). As Field Oriented Control is simply based on
+projections the control structure handles instantaneous electrical quantities. This makes the control accurate in every working operation (steady state and transient) and independent of the limited bandwidth mathematical model.\\ The FOC thus solves the classic scheme problems, in the following ways:
+\begin{itemize}
+\item  the ease of reaching constant reference (torque component and flux component of the
+stator current)
+\item the ease of applying direct torque control because in the (d,q) reference frame the
+expression of the torque is:
+\begin{center}
+$$m\propto\Psi_{R}i_{Sq}$$
+\end{center}
+\end{itemize}
+By maintaining the amplitude of the rotor flux $\Psi_{R}$ at a fixed value we have a linear relationship between torque and torque component $i_{Sq}$. We can then control the torque
+by controlling the torque component of stator current vector.\\
+
+\textbf{$\boldsymbol{(\alpha,\beta)\rightarrow (d,q)}$: Park transformation}\\
+
+This is the most important transformation in the FOC. In fact, this projection modifies a
+two phase orthogonal system $(\alpha,\beta)$ in the d,q rotating reference frame. If we consider the
+d axis aligned with the rotor flux, the next diagram shows, for the current vector, the
+relationship from the two reference frame:
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{PARK.png}
+\end{figure}\\
+where $\theta$ is the rotor flux position. The flux and torque components of the current vector
+are determined by the following equations:\\
+$$\bigg \{
+\begin{array}{lr}
+i_{Sd} = i_{S\alpha}cos(\theta)+i_{S\beta}sin(\theta)\\
+i_{Sq} = -i_{S\alpha}sin(\theta)+i_{S\beta}cos(\theta)\\
+\end{array}
+$$\\
+
+\textbf{$\boldsymbol{(d,q)\rightarrow (\alpha,\beta)}$: anti Park transformation}\\
+Here, we introduce from this voltage transformation only the equation that modifies the
+voltages in d,q rotating reference frame in a two phase orthogonal system:\\
+$$\bigg \{
+\begin{array}{lr}
+v_{S\alpha ref} = v_{Sdref}cos(\theta)-v_{Sqref}sin(\theta)\\
+v_{S\beta ref} = v_{Sdref}sin(\theta)+v_{Sqref}cos(\theta)\\
+\end{array}
+$$\\
+Two motor phase currents are measured. These measurements feed the Clarke
+transformation module. The outputs of this projection are designated $i_{S\alpha}$ and $i_{S\beta}$.\\
+These two components of the current are the inputs of the Park transformation that gives the
+current in the d,q rotating reference frame. The $i_{Sd}$ and $i_{Sq}$ components are compared to the
+references $i_{Sdref}$ (the flux reference) and $i_{Sqref}$ (the torque reference).
+
+\subsection{DMC28x}
+
+DMC28x is the software we are provided with to write on our microcontroller. Here we will explain how the program we use is built. 
+The main program in C is named \textit{PMSM28.C}, and contains initializations and C code for current and speed control. 
+In particular the three most relevant parts for us of this program are:
+
+\textbf{Void main(void)}:
+This is the Main function of the program. It implements the program initializations, activates interrupts, performs initial positioning of the motor. Finally waits in an infinite loop until the "stop" variable is set to 1.
+
+\textbf{Interrupt void RtcSlow()}:
+This is the speed loop control routine.
+It implements the speed control and also calls the speed reference function. Computes the quadrature (torque)
+current reference value ($iq_{ref}$).
+This cycle samples at 1kHz, and this will impact our specifications for the control's parameters.
+
+\textbf{Interrupt void RtcFast()}:
+This is the current loop control routine and implements the current control. As FOC is implemented, to control the motor rotoric d,q frame is used and this function computes the phase voltages reference values and issues the new PWM commands. The sampling is 10kHz and this determines the maximum resolution we can obtain. 
+
+\subsection{IQ data}
+
+IQ are fixed point 32-bit data types, for our application we will use a IQ16: this means that 16 bites are dedicated to the \textit{Quotient} part, 15 for the \textit{Integer} part and a bit for the sign.
+\begin{figure}[h]
+\centering
+\includegraphics[width=10cm,height=7cm,angle=0]{IQ.png}
+\end{figure}\\  
+To manage this tipe of data is necessary to use a specific library called IQmath which is a collection of highly
+optimised and high precision mathematical functions shortening significantly an embedded control development time. 
+Input/output of the IQmath functions are typically 32-bit fixed-point numbers and the Q format of
+the fixed-point number can vary from Q1 to Q30.
+
+\newpage\subsection{Software familiarization}
+We began "playing" with Matlab 6 testing simple blocks from the library, elementary functions and operations (i.e. integrators, derivators, exponentials...) just to become a little more acquainted with it.\\
+Once we designed our desired functions in simulink, we had to build them, in order to generate the proper C code, necessary for the software to run them.
+Portions of the code we wrote are reported. 
+The second issue we run across was understanding which kind of data the microcontroller had to be fed with.
+Since we didn't know the relations between different kind of data (int, float, double) and the iq, the one suitable for the microcontroller, we had to find it out. All these tests were performed in the fast loop of the code.\\
+To solve these problems we built some elementary blocks in Simulink to practice.
+The very first test was a simple \textit{multiplication}:\\
+\begin{figure}[h]
+\centering
+\subfloat[][\emph{Multiplica block}]
+{\includegraphics[width=.45\textwidth]{MultiplicaBlock}} \quad
+\subfloat[][\emph{Multiplica code}]
+{\includegraphics[width=.45\textwidth]{MultiplicaCode}} \\
+\end{figure}\\
+From this test we understood that the micro had to be fed with IQ data.\\
+The second one was on trigonometric functions, specifically a \textit{sine}:
+%INSERIRE IMMAGINE BLOCCO + CODICE%
+At this point we came across with problems.\\
+We were using at the beginning the wrong kind of blocks. We were using continuous time functions but the outputs didn't correspond to  what we expected:
+%------------------------
+%Inserire immagini con errore
+%------------------------
+As a result we realized that "Discrete Time Blockset" library had to be used.\\ 
+This particular step was absolutely fundamental because we needed it to work properly to implement the \textit{Park} and \textit{AntiPark} transformations.
+%------------------------
+%Inserire immagini soluzione dell'errore di prima
+%------------------------
+Another necessary function was the integrator, so we decided to test it:
+%INSERIRE IMMAGINE BLOCCO + CODICE%
+
+Thanks to these testes, we have had new a insight; we have to feed the microcontroller with discrete-time transfer functions.
+To obtain a discrete time transfer function starting from one in continuous time, we decided to use the   
+Once we were sure that all the blocks worked properly we could go on with the project.
+
+\newpage\section{Identification of the system parameters}
+
+To identify all the necessary parameters, we started looking for datasheets.
+In particular, we were interested in finding data of the motor and this is what we found: 
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{Pittman1.png}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{Pittman2.png}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{Pittman3.png}
+\end{figure}\\[0.7cm]
+This file, perfectly describes our machine and provides us all the quantities that we needed to perform the control.
+
+\section{Implementation of Matlab/Simulink simulation model}
+The chapter discusses the Simulink implementation of the motor's model and a brief explanation of the transfer function that has been used.
+Since we will use a vectorial control \textit{(Field Oriented Control)}, an overall control scheme (with voltage supply) is shown below:
+\begin{figure}[h]
+\centering
+\includegraphics[width=17.5cm,height=8cm,angle=0]{Controllodezzaschema}
+\caption{Theoretical control scheme.}
+\end{figure}
+
+Following these guidelines, we have implemented our motor's model using Simulink.
+Below, our result is shown:
+\begin{figure}[h]
+\centering
+\includegraphics[width=16cm,height=8cm,angle=0]{MotoreSimulink}
+\caption{Motor control scheme.}
+\end{figure}
+
+\newpage\section{Implementation and tuning of the current and speed loop (classical solution with PI-PI nested loops) with or without Feed-Forward on the current loop}
+\subsection{Chapter overview}
+The chapter provides to the reader a basic introduction of the used control strategy and analyses in detail our solutions.
+Furthermore, 
+\subsection{Current loop}
+Permanent magnet (PM) motors
+are built with a combination of magnets and current-carrying coils. The electromagnetism
+produced by the current interacts with the field from the magnets to produce
+the torque that moves the motor. If you want well-controlled torque, you have to have
+well-controlled current.
+Electric motor drives (sometimes called inverters or amplifiers) use power transistors to
+deliver energy. These transistors produce voltage; current is generated by the electrical
+circuit that is formed from the drive voltage and the motor windings.
+Because the power transistors produce voltage, a current loop is required to achieve
+precise control of current. A current loop compares the current command to the feedback
+and adjusts the drive voltage to minimize the error.
+\begin{figure}[h]
+\centering
+\includegraphics[width=10cm,height=4cm,angle=0]{SchemaRegCorrDezza}
+\end{figure}\\[0.5cm]
+One of the most important parameters for this type of machine is the bandwidth, which measure its responsiveness.\\ 
+Current loops must be fast; otherwise, they will reduce system performance. The current
+loop is the middle of the velocity loop; in a sense, the current loop acts like a filter,
+providing a delayed response to the velocity-loop output that decreases its the stability. 
+To design the regulator and select a proper bandwidth, we have followed this strategy and we have selected a suitable \textit{$\omega_{max}$}, that will be described later in this chapter.
+\begin{figure}[h]
+\centering
+\includegraphics[width=14cm,height=2.5cm,angle=0]{AnelloCorrente}
+\end{figure}\\
+As seen in the \textit{software familiarization} step, to make transfer functions usable by the microcontroller, we had to discretize them first.
+So to perform this operation, we used \textit{Tustin transformation} and what we got is the transfer function in discrete time.
+The updated loop in discrete time is the following:
+\begin{figure}[h]
+\centering
+\includegraphics[width=16cm,height=3cm,angle=0]{Anellocorrentediscreto}
+\end{figure}\\
+Note that, there is a new block named \textit{Zero-Order Hold} that is used to discretize a continuous input with the sampling time chosen by the user. Our sampling is performed at 10kHz as the microcotroller in the fast loop does.
+\begin{huge}
+Inserire formule TF e Ts e Tustin
+\end{huge}
+\subsubsection*{Tuning the PI}
+The specification of the current loop depends on the environment in which we are working. As the speed is controlled in the slow loop, and the current reference is imposed by the speed control, we want the current to update within one cycle of the velocity loop. This means that the current has to reach steady state at most in one sampling time of 1kHz. For this reason we set the rising time of the current to 0.5ms. This parameter leads us to a bandwidth of 6000.
+The image below shows what we got from the Simulink execution. 
+\begin{figure}[h]
+\centering
+\includegraphics[width=10cm,height=9cm,angle=0]{TsCorrente}
+\caption{Comparison between input reference and system response}
+\end{figure}\\
+Note that the rising time perfectly coincides with the expected one (i.e. 0.5ms). 
+\subsection{Speed loop}
+To realize the speed regulator, the whole system transfer function is needed. The output of the speed regulator represents the desired value of the electromagnetic torque that is proportional to the q component of the statoric current.\\
+This is shown in the scheme below.
+\begin{figure}[h]
+\centering
+\includegraphics[width=15cm,height=3cm,angle=0]{Schemaregvel}
+\caption{Speed regulator scheme}
+\end{figure}\\
+In this case, two possibilities are available. If the bandwidth of the current regulator is much higher than the one demanded from the speed regulator, the current amplifier can be considered ideal (\textit{unitary gain}).\\
+Otherwise, once the current regulator is designed, the transfer function Fi(s) is known.
+In this case, the speed regulator must be designed taking into consideration a system characterized by a transfer function made of the product between the Fi(s) and the mechanical load transfer function F(s).
+We chose the first way, selecting a bandwidth at least a decade lower than the one for the current, considering a unitary gain for the current amplifier.
+\begin{figure}[h]
+\centering
+\includegraphics[width=15cm,height=3cm,angle=0]{Anellovelocitacont}
+\caption{Speed loop in continuous time}
+\end{figure}\\
+Also in this case, to feed the microcontroller with the transfer function, we had to discretize it:
+\begin{figure}[h]
+\centering
+\includegraphics[width=15cm,height=3cm,angle=0]{AnelloVelocitaDiscreto}
+\caption{Speed loop in discrete time}
+\end{figure}\\[0.5cm]
+In the last scheme, three new block has been used:\\
+\textit{Convert} and \textit{Gateway Out} are data type conversion blocks and convert an input signal of any simulink data type to the one that you specify. In particular, we used them to convert of type double in IQ, which is the type the microcontroller has to be fed with.
+The \textit{memory} block holds and delays its input by one major integration time step. When placed in an iterator subsystem, it holds and delays its input by one iteration.
+Finally, the \textit{saturation} block imposes upper and lower limits on an input signal. We needed it to simulate the fact that our is a 32 bit board, with 15 bits dedicated to the integer part, which corresponds to an upper limit of 32768 ($2^{15} = 32768$).
+
+
+
+
+\section{Implementation of the control SW on the real system and comparison between numerical and experimental results for all the control architectures}
+
+
+
+
+\section{Position control}
+In this chapter we implemented the last nest, the one of Position Control.
+In our scheme the motor load is represented only by the inertia \textit{Jm} and an integrator \textit{1/s}. The resulting transfer function is \textit{Jm/s}.
+Taking as input the Command Voltage and as output the final position we decided to model the controller as a pure proportional term \textit{Kp}.
+The output of P controller is the torque that tunes the final position. 
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=15cm,height=3cm,angle=0]{}
+	\caption{Position block diagram in continuous time}
+\end{figure}\\
+
+
+As for current and speed loop we move everything from the continuous time to the discrete one. The final result is shown in the figure below
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=15cm,height=3cm,angle=0]{}
+	\caption{Position block diagram in discrete time}
+\end{figure}\\
+
+
+As shown in figures the resulting system transfer function is \textbf{P(s)}
+\begin{equation}
+P(s) = \dfrac{Kp*Jm}{s}
+\end{equation}
+
+
+
+
+
+\end{document}
+
