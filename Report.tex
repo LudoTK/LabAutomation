@@ -390,7 +390,6 @@ With this last step, we will compute the \textit{discretization} of the transfer
 \includegraphics[width=9cm,height=1.5cm,angle=0]{CodicePICorrente3}
 \end{figure}\\
 
-
 \subsection{Speed loop}
 To realize the speed regulator, the whole system transfer function is needed. The output of the speed regulator represents the desired value of the electromagnetic torque that is proportional to the q component of the statoric current.\\
 This is shown in the scheme below.
@@ -421,11 +420,127 @@ Finally, the \textit{saturation} block imposes upper and lower limits on an inpu
 \subsubsection*{Tuning the PI}
 
 \section{Implementation of the control SW on the real system and comparison between numerical and experimental results for all the control architectures}
+\subsection{Chapter overview}
+In this chapter we will discuss about how we implemented the control strategies on the real system 
+and about what the system gave us back. In some cases the result matched what we expected while in 
+other cases it did not.
+\subsection{Analog to Digital conversion}
+In this section we faced the problem of conversion of analogic values of the motor to digital values.
+To do so, we studied the "user manual" of MSK2812 software, in particular the current measurement scheme reported below:
 
+%\begin{figure}[p] 
+%\includegraphics[width=\columnwidth]{Schemaconversione}
+%\caption{Current Measurement} 
+%\end{figure}
 
+Since the current flowing from the motor goes from a min of -6.33A to a max of 6.33A, the max range is 12.66A.
+The IQ16 is 16 bit with sign, we considered only the unsigned part of 15 bit that provides $2^{15}=32768$ values.
+At this point, considering only half range of current we wrote the following equation:
 
+\begin{equation}
+[Value in Bit]*\frac{6.33}{2^{15}} = [Value in Ampere]
+\end{equation}
+Providing a conversion factor of:
+\begin{equation}
+[Value in Bit] * 0.000193 = [Value in Ampere]
+\end{equation}
+This information was particularly useful in order to give the right reference to the current.
+From the output of the velocity PI to the input of the current PI we tuned the torque using the conversion factor of 0.000193 found before.
+
+\subsection{Current loop}
+To implement the current loop on the real system we could not build a subsystem containing merely the transfer 
+function of the PI, instead we had to divide this TF in smaller blocks, using only Integrals and gains. 
+We performed this decomposition pen-on-paper and then, using matlab, we calculated the proper gains to make 
+the two functions equivalent. 
+We report here the calculation we performed and the resulting simulink subsystem.
+% --------   *foto blocchi e conti matlab
+
+At this point, after performing the building of the subsystem, we had a suitable function to use in DMC28x.
+As mentioned before the control of the current has to be written in the fast loop of the program. We will report here 
+the definitive code we wrote for the control, and then we will comment it:
+% --------foto codice 123
+
+One problem that hit us during the implementation of this code concerned the PI itself. At first we were using only 
+one PI function to calculate Uq and Ud, and this rose some problems. Probably, as the program initializes the 
+functions at the beginning, to use a function twice makes the initial conditions wrong. This error propagates during the execution and prevents the program from working. 
+
+We also built the park and antipark transformation functions ourselves in simulink using simple blocks that we tested singularly.
+As you can see in the code data types are often imposed. 
+This is due to the fact that IQ data type and other ones are not compatible, so we had to match every data type
+and check whether the functions we were using returned the expected data type or not. This aspect reflected also 
+on simple tasks as multiplying two numbers. Normally C language can perform multiplications, so at first we guessed 
+if it could multiply also two numbers given in IQ. This is not the case, as we learned trying, so we used a function 
+called $IQ16rsmpy()$ defined in a library that contains all the mathematical functions we could need to perform calculations with IQ. This is used for example to calculate the electrical speeds. 
+
+At the end of every cycle the programs updates the values of the output voltages using the functions $pwm.Update()$
+and thanks to this function we can control the desired voltages.
+
+\subsection{Speed loop}
+\subsubsection*{Encoder initialization}
+The aim of the encoder is to provide an estimation of the rotational speed of the rotor.
+First of all, it was necessary to clarify a couple of points:
+\begin{enumerate}
+\item Correctness of the absolute value of the measured speed.
+\item Correctness of the sign of the measured speed.
+\end{enumerate}
+\textbf{1)} The problem in this case was that the velocity measurement was not correct from the first instant, but instead required an initial transitory to let the measure to reach steady state. 
+
+%----------(fig)
+
+Specifically it was necessary to introduce the speed loop only once the measure was certainly correct.
+To reach this goal we thought to introduce at the starting time of the system, composed by microcontroller and motor, a sort of initialization phase of the estimator of the speed. This estimation is characterized by the following behaviour:
+At the beginning, an initial polarization is given to the stator for more or less 10 ms, during which is set a current reference of 1A. This permits us to impose an initial movement on the rotor and permits to the encoder to start working. 
+%-------(fig)
+%-- (figura variazione ed inseguimento riferimento di corrente)
+
+After these 10 ms the current reference is set to zero, in such a way to let the rotor free to move until it stops. 
+From this point on we considered the initialization completed only when the speed kept the zero for long enough, that is for at least 5 samples. 
+From the image we can deduce that the speed estimation goes through an initial transition before reaching a null correct value. 
+Is worth mentioning that this phase can have a variable length, because it is necessary to wait till the estimation goes permanently to zero. 
+\textit{NOTE}: From a practical point of view we observed that this does not require more than 20 ms.\\[1cm] 
+\textbf{2)} The problem now is that the sign of the estimation of the speed depends on the first instants of the rotation, and so from the initial reference. This sign could be positive both clockwise or counter clockwise, depending on the initial direction of rotation. This initial rotation depends on the initial position of the rotor, that we considered a random unpredictable variable, therefore non controllable. 
+The fundamental problem was then that it was not granted that to a positive torque corresponded a positive speed. 
+This randomness of the sign of the speed was source of instability for the closed loop system.
+Consider for example the case in which the reference is taken as positive counter clockwise, while to a positive torque corresponds a counter clockwise rotation. The speed reference is set to zero and we suppose that, because of disturbances or external actions, the speed is taken as positive. 
+In this case the PI will of course impose a negative torque in order to bring the error back to zero.
+But as the sign of the torque and the speed do not coincide, we have that this negative torque is going to increase the positive speed and this will increase the speed error that enters the PI. 
+Like it is easy to guess this mechanism introduces instability in the control, a fast saturation of the control action and a drift of the speed, as shown in figure:
+
+%-------(fig)
+Once we have identified the problem, to prevent it we have introduced another initialization phase that fixes the sign issue. 
+In this phase a positive torque is imposed on the system and the speed is measured. If it is negative, then the speed measured is multiplied by minus one before being used in the control.\\
+In conclusion, we can appreciate from these plots the behaviour here depicted, where we can identify the first initialization phase about the module and the second correction for the sign.  
+Once we successfully initialized the encoder, the system began working properly and providing us decent results, but not exactly what we were expecting. 
 
 \section{Position control}
+\subsection{Chapter overview}
+In this chapter we implemented the last nest, the one of position control.
+In our scheme the motor load is represented only by the inertia \textit{Jm} and an integrator \textit{1/s}. The resulting transfer function is \textit{Jm/s}.
+Taking as input the Command Voltage and as output the final position we decided to model the controller as a pure proportional term \textit{Kp}.
+The output of P controller is the torque that tunes the final position. 
+
+%\begin{figure}[h]
+%\centering
+%\includegraphics[width=15cm,height=3cm,angle=0]{ciaociao}
+%\caption{Position block diagram in continuous time}
+%\end{figure}\\
+
+As for current and speed loop we move everything from the continuous time to the discrete one. The final result is shown in the figure below
+
+%\begin{figure}[h]
+%\centering
+%\includegraphics[width=15cm,height=3cm,angle=0]{ciaociao}
+%\caption{Position block diagram in discrete time}
+%\end{figure}\\
+
+As shown in figures the resulting system transfer function is \textbf{P(s)}
+\begin{equation}
+P(s) = \dfrac{Kp*Jm}{s}
+\end{equation}
+
+Where the \textit{Jm} is taken from datashit and the \textit{Kp} is equal to 211.23
+
+The measurement of output position is made by the encoder.
 
 
 \end{document}
