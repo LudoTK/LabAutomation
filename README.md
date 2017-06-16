@@ -1,1 +1,7 @@
 # LabAutomation
+
+safaretutto
+
+oppureno
+
+speriamobene
